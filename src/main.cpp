@@ -1,5 +1,4 @@
 #include "main.h"
-#include "globals.hpp"
 
 /**
  * A callback function for LLEMU's center button.
@@ -30,6 +29,15 @@ void initialize() {
 	pros::lcd::register_btn1_cb(on_center_button);
 
 	dr1L.set_brake_mode(pros::E_MOTOR_BRAKE_BRAKE);
+	dr2L.set_brake_mode(pros::E_MOTOR_BRAKE_BRAKE);
+	dr1R.set_brake_mode(pros::E_MOTOR_BRAKE_BRAKE);
+	dr2R.set_brake_mode(pros::E_MOTOR_BRAKE_BRAKE);
+
+	dr1L.set_encoder_units(pros::E_MOTOR_ENCODER_DEGREES);
+	dr1R.set_encoder_units(pros::E_MOTOR_ENCODER_DEGREES);
+
+	pros::Task driveTsk(SlewRateTsk);
+	pros::Task odomTsk(TrackOdom);
 }
 
 /**
@@ -61,7 +69,9 @@ void competition_initialize() {}
  * will be stopped. Re-enabling the robot will restart the task, not re-start it
  * from where it left off.
  */
-void autonomous() {}
+void autonomous() {
+	yOdom = 105.7f;
+}
 
 /**
  * Runs the operator control code. This function will be started in its own task
@@ -77,19 +87,39 @@ void autonomous() {}
  * task, not resume it from where it left off.
  */
 void opcontrol() {
-	pros::Controller master(pros::E_CONTROLLER_MASTER);
-	pros::Motor left_mtr(1);
-	pros::Motor right_mtr(2);
-
+    int y = master.get_analog(pros::E_CONTROLLER_ANALOG_LEFT_Y);
+	using namespace std;
+	int local_motorSent[4];
 	while (true) {
-		pros::lcd::print(0, "%d %d %d", (pros::lcd::read_buttons() & LCD_BTN_LEFT) >> 2,
-		                 (pros::lcd::read_buttons() & LCD_BTN_CENTER) >> 1,
-		                 (pros::lcd::read_buttons() & LCD_BTN_RIGHT) >> 0);
-		int left = master.get_analog(ANALOG_LEFT_Y);
-		int right = master.get_analog(ANALOG_RIGHT_Y);
+    	y = CurveFilter(3,y);
+		//Prevents the slew Task from running, ensures a race condition never occurs
+		driveFlag = 0;
+		if (abs(y) > DEADZONE) {
+			motorReq[dr1L_PORT-1] = y;
+			motorReq[dr2L_PORT-1] = y;
+			motorReq[dr1R_PORT-1] = -y;
+			motorReq[dr2R_PORT-1] = -y;
+		} else {
+			motorReq[dr1L_PORT-1] = 0;
+			motorReq[dr2L_PORT-1] = 0;
+			motorReq[dr1R_PORT-1] = 0;
+			motorReq[dr2R_PORT-1] = 0;
+		}
+		//As the task is closed, copy their values to local array for motor assignemnt, ensures after the task opens, a race condition won't happen
+		local_motorSent[dr1L_PORT-1] = motorSent[dr1L_PORT-1];
+		local_motorSent[dr2L_PORT-1] = motorSent[dr2L_PORT-1];
+		local_motorSent[dr1R_PORT-1] = motorSent[dr1R_PORT-1];
+		local_motorSent[dr1R_PORT-1] = motorSent[dr1R_PORT-1];
 
-		left_mtr = left;
-		right_mtr = right;
+		//Opens slew task
+		driveFlag = 1;
+
+		//Applies sent motor values to the motors
+		dr1L.move(local_motorSent[dr1L_PORT-1]);
+		dr2L.move(local_motorSent[dr2L_PORT-1]);
+		dr1R.move(local_motorSent[dr1R_PORT-1]);
+		dr2R.move(local_motorSent[dr2R_PORT-1]);
+
 		pros::delay(20);
 	}
 }

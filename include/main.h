@@ -77,6 +77,8 @@ void opcontrol(void);
  */
 #include <iostream>
 #include "ctrls.hpp"
+#include "globals.hpp"
+#include "odom.hpp"
 #endif
 
 #endif  // _PROS_MAIN_H_
