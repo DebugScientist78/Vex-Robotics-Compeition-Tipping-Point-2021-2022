@@ -20,8 +20,8 @@ void TrackOdom(void *param) {
 
     using namespace std;
     while (1) {
-        rWheel = DistToDeg(dr1R.get_position(), true);
-        lWheel = DistToDeg(dr1L.get_position()*-1, true);
+        rWheel = DistToDeg(dr1R.get_position()*-1, true);
+        lWheel = DistToDeg(dr1L.get_position(), true);
         rDelta = rWheel - rWheelPrev;
         lDelta = lWheel - lWheelPrev;
 
@@ -50,7 +50,9 @@ void TrackOdom(void *param) {
                 //shortLen = (newDeg/360)*2PIr
                 h = 2*(sin(newDeg/2)*radius);
                 float otherAng = 1.5708f - (newDeg/2.0f);
-                if (prevDirection == 90 || prevDirection == 270) {
+                float aLen = cos(newDeg/2)*h;
+                float oLen = sin(newDeg/2)*h;
+                /*if (prevDirection == 90 || prevDirection == 270) {
                     if (lDelta > rDelta) xOdom += h*sin(otherAng);
                     else xOdom -= h*sin(otherAng);
                     yOdom += h*cos(otherAng);
@@ -58,18 +60,24 @@ void TrackOdom(void *param) {
                     yOdom -= h*cos(otherAng);
                     if (lDelta > rDelta) xOdom -= h*sin(otherAng);
                     else xOdom += h*sin(otherAng);
-                }
-                float xLocalDisp;
-                float yLocalDisp;
-                //if the bot turns towards the horizontal, then the vertical sides take the difference
-                //otherwise the horizontal sides take the difference
-                if (degDirection > 0 && degDirection < 90) {
-                    if ((newDeg*-1) > 0) {
+                }*/
+                float xLocalDisp = 0;
+                float yLocalDisp = 0;
+                xLocalDisp += aLen * cos(prevDirection/RAD_TO_DEG);
+                yLocalDisp += aLen * sin(prevDirection/RAD_TO_DEG);
 
-                    } else {
-
-                    }
+                if (lDelta > rDelta) {
+                    float adjustedAng = prevDirection - 90;
+                    xLocalDisp += oLen * cos(adjustedAng/RAD_TO_DEG);
+                    yLocalDisp += oLen * sin(adjustedAng/RAD_TO_DEG);
+                } else {
+                    float adjustedAng = prevDirection + 90;
+                    xLocalDisp += oLen * cos(adjustedAng/RAD_TO_DEG);
+                    yLocalDisp += oLen * sin(adjustedAng/RAD_TO_DEG);
                 }
+
+                xOdom += xLocalDisp;
+                yOdom += yLocalDisp;
             }
         }
 
